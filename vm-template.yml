@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: vm-template-rhel7
+  creationTimestamp: null
+  annotations:
+    description: "OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template"
+    iconClass: icon-rhel
+    tags: "kubevirt,ocp,template,linux,virtualmachine"
+  labels:
+    kubevirt.io/os: rhel-7.4
+    miq.github.io/kubevirt-is-vm-template: "true"
+objects:
+- apiVersion: kubevirt.io/v1alpha2
+  kind: VirtualMachine
+  metadata:
+    creationTimestamp: null
+    labels:
+      kubevirt-vm: vm-${NAME}
+    name: ${NAME}
+  spec:
+    running: false
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          kubevirt-vm: vm-${NAME}
+          special: demo-key
+      spec:
+        domain:
+          cpu:
+            cores: ${{CPU_CORES}}
+          devices:
+            disks:
+            - disk:
+                bus: virtio
+              name: disk0
+              volumeName: disk0-pvc
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+              volumeName: cloudinitvolume
+          resources:
+            requests:
+              memory: ${MEMORY}
+        terminationGracePeriodSeconds: 0
+        volumes:
+        - name: disk0-pvc
+          persistentVolumeClaim:
+            claimName: linux-vm-pvc-${NAME}
+        - name: cloudinitvolume
+          cloudInitNoCloud:
+            userData: |-
+              #cloud-config
+              password: "redhat"
+              chpasswd: { expire: False }
+              ssh_authorized_keys:
+              - ${KEY}
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    creationTimestamp: null
+    name: linux-vm-pvc-${NAME}
+    labels:
+      app: containerized-data-importer
+    annotations:
+      kubevirt.io/storage.import.endpoint: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-i386-disk.img"
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20Mi
+parameters:
+- description: Name for the new VM
+  name: NAME
+- description: Amount of memory
+  name: MEMORY
+  value: 4096Mi
+- description: Amount of cores
+  name: CPU_CORES
+  value: "4"
